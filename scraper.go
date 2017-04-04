@@ -14,9 +14,19 @@ const (
 	pending = "https://www.whitehouse.gov/briefing-room/pending-legislation"
 )
 
-// GetSigned returns a list of signed bills.
+// GetSigned fetches a list of signed bills.
 func GetSigned() ([]Bill, error) {
 	return scrape(signed)
+}
+
+// GetPending fetches a list of pending bills.
+func GetPending() ([]Bill, error) {
+	return scrape(pending)
+}
+
+// GetVetoed fetches a list of vetoed bills.
+func GetVetoed() ([]Bill, error) {
+	return scrape(vetoed)
 }
 
 // scrape pulls a list of bills from a URL.
