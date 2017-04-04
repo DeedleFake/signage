@@ -14,31 +14,35 @@ const (
 	pending = "https://www.whitehouse.gov/briefing-room/pending-legislation"
 )
 
-func GetSigned() ([]Entry, error) {
+// GetSigned returns a list of signed bills.
+func GetSigned() ([]Bill, error) {
 	return scrape(signed)
 }
 
-func scrape(url string) ([]Entry, error) {
+// scrape pulls a list of bills from a URL.
+//
+// TODO: Handle scraping multiple pages.
+func scrape(url string) ([]Bill, error) {
 	const (
 		DateFormat = "2006-01-02T15:04:05-07:00"
 	)
 
 	rsp, err := http.Get(url)
 	if err != nil {
-		return nil, Error(err)
+		return nil, lineError(err)
 	}
 	defer rsp.Body.Close()
 
 	root, err := html.Parse(rsp.Body)
 	if err != nil {
-		return nil, Error(err)
+		return nil, lineError(err)
 	}
 
 	content := findNode(root, func(n *html.Node) bool {
 		return (n.Type == html.ElementNode) && (n.Data == "div") && (getAttr(n.Attr, "class") == "view-content")
 	})
 
-	var entries []Entry
+	var entries []Bill
 	for cur := content.FirstChild; cur != nil; cur = cur.NextSibling {
 		if (cur.Type != html.ElementNode) || (cur.Data != "div") {
 			continue
@@ -49,7 +53,7 @@ func scrape(url string) ([]Entry, error) {
 		})
 		date, err := time.Parse(DateFormat, getAttr(found.Attr, "content"))
 		if err != nil {
-			return nil, Error(err)
+			return nil, lineError(err)
 		}
 
 		found = findNode(cur, func(n *html.Node) bool {
@@ -58,7 +62,7 @@ func scrape(url string) ([]Entry, error) {
 		title := strings.TrimSpace(found.FirstChild.FirstChild.Data)
 		url := getAttr(found.FirstChild.Attr, "href")
 
-		entries = append(entries, Entry{
+		entries = append(entries, Bill{
 			Date:  date,
 			Title: title,
 			URL:   url,
@@ -68,6 +72,9 @@ func scrape(url string) ([]Entry, error) {
 	return entries, nil
 }
 
+// findNode recursively searches an HTML node tree until it finds one
+// on which match returns true, at which point it returns that node.
+// If no nodes match, it returns nil.
 func findNode(root *html.Node, match func(*html.Node) bool) *html.Node {
 	if (root == nil) || match(root) {
 		return root
@@ -90,7 +97,9 @@ func getAttr(attrs []html.Attribute, key string) (val string) {
 	return
 }
 
-type Entry struct {
+// Bill contains information about a specific entry on the White House
+// site.
+type Bill struct {
 	Date  time.Time
 	Title string
 	URL   string
