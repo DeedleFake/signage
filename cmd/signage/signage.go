@@ -13,6 +13,8 @@ import (
 	"github.com/DeedleFake/signage"
 )
 
+type marshalFunc func(string, []signage.Bill) (io.Reader, error)
+
 func marshalRSS(t string, bills []signage.Bill) (io.Reader, error) {
 	var buf bytes.Buffer
 	err := tmpl.ExecuteTemplate(&buf, "rss", map[string]interface{}{
@@ -30,23 +32,9 @@ func marshalJSON(t string, bills []signage.Bill) (io.Reader, error) {
 	return bytes.NewReader(buf), err
 }
 
-func handle(rw http.ResponseWriter, req *http.Request, mode string, get billFunc) {
-	format := path.Ext(req.URL.Path)
-	if format == "" {
-		format = ".rss"
-	}
+type getFunc func() ([]signage.Bill, error)
 
-	var marshal func(t string, bills []signage.Bill) (io.Reader, error)
-	switch format {
-	case ".rss":
-		marshal = marshalRSS
-	case ".json":
-		marshal = marshalJSON
-	default:
-		http.Error(rw, fmt.Sprintf("Unknown format: %q", format), http.StatusBadRequest)
-		return
-	}
-
+func handle(rw http.ResponseWriter, req *http.Request, mode string, get getFunc, marshal marshalFunc) {
 	bills, err := get()
 	if err != nil {
 		http.Error(rw, err.Error(), http.StatusInternalServerError)
@@ -66,10 +54,15 @@ func handle(rw http.ResponseWriter, req *http.Request, mode string, get billFunc
 	}
 }
 
-type billFunc func() ([]signage.Bill, error)
-
 var (
-	modes = map[string]billFunc{
+	marshallers = map[string]marshalFunc{
+		"": marshalRSS,
+
+		".rss":  marshalRSS,
+		".json": marshalJSON,
+	}
+
+	modes = map[string]getFunc{
 		"signed":  signage.GetSigned,
 		"vetoed":  signage.GetVetoed,
 		"pending": signage.GetPending,
@@ -83,12 +76,18 @@ func mux(rw http.ResponseWriter, req *http.Request) {
 	mode := name[:len(name)-len(ext)]
 	get, ok := modes[mode]
 	if !ok {
-		http.Error(rw, fmt.Sprintf("Unknown get: %q", get), http.StatusBadRequest)
+		http.Error(rw, fmt.Sprintf("Unknown bill list: %q", mode), http.StatusBadRequest)
+		return
+	}
+
+	marshal, ok := marshallers[ext]
+	if !ok {
+		http.Error(rw, fmt.Sprintf("Unknown format: %q", ext), http.StatusBadRequest)
 		return
 	}
 
 	mode = string(unicode.ToUpper(rune(mode[0]))) + mode[1:]
-	handle(rw, req, mode, get)
+	handle(rw, req, mode, get, marshal)
 }
 
 func main() {
