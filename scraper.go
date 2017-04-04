@@ -55,6 +55,9 @@ func scrape(url string) ([]Bill, error) {
 	content := findNode(root, func(n *html.Node) bool {
 		return (n.Type == html.ElementNode) && (n.Data == "div") && (getAttr(n.Attr, "class") == "view-content")
 	})
+	if content == nil {
+		return nil, nil
+	}
 
 	var entries []Bill
 	for cur := content.FirstChild; cur != nil; cur = cur.NextSibling {
