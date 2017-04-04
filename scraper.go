@@ -9,9 +9,11 @@ import (
 )
 
 const (
-	signed  = "https://www.whitehouse.gov/briefing-room/signed-legislation"
-	vetoed  = "https://www.whitehouse.gov/briefing-room/vetoed-legislation"
-	pending = "https://www.whitehouse.gov/briefing-room/pending-legislation"
+	base = "https://www.whitehouse.gov"
+
+	signed  = base + "/briefing-room/signed-legislation"
+	vetoed  = base + "/briefing-room/vetoed-legislation"
+	pending = base + "/briefing-room/pending-legislation"
 )
 
 // GetSigned fetches a list of signed bills.
@@ -75,7 +77,7 @@ func scrape(url string) ([]Bill, error) {
 		entries = append(entries, Bill{
 			Date:  date,
 			Title: title,
-			URL:   url,
+			URL:   base + url,
 		})
 	}
 
