@@ -5,6 +5,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/DeedleFake/signage/errors"
+
 	"golang.org/x/net/html"
 )
 
@@ -41,13 +43,13 @@ func scrape(url string) ([]Bill, error) {
 
 	rsp, err := http.Get(url)
 	if err != nil {
-		return nil, lineError(err)
+		return nil, errors.Err(err)
 	}
 	defer rsp.Body.Close()
 
 	root, err := html.Parse(rsp.Body)
 	if err != nil {
-		return nil, lineError(err)
+		return nil, errors.Err(err)
 	}
 
 	content := findNode(root, func(n *html.Node) bool {
@@ -65,7 +67,7 @@ func scrape(url string) ([]Bill, error) {
 		})
 		date, err := time.Parse(DateFormat, getAttr(found.Attr, "content"))
 		if err != nil {
-			return nil, lineError(err)
+			return nil, errors.Err(err)
 		}
 
 		found = findNode(cur, func(n *html.Node) bool {
