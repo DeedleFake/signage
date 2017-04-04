@@ -34,7 +34,7 @@ func marshalJSON(t string, bills []signage.Bill) (io.Reader, error) {
 
 type getFunc func() ([]signage.Bill, error)
 
-func handle(rw http.ResponseWriter, req *http.Request, mode string, get getFunc, marshal marshalFunc) {
+func getBills(rw http.ResponseWriter, req *http.Request, mode string, get getFunc, marshal marshalFunc) {
 	bills, err := get()
 	if err != nil {
 		http.Error(rw, err.Error(), http.StatusInternalServerError)
@@ -105,7 +105,7 @@ func mux(rw http.ResponseWriter, req *http.Request) {
 	}
 
 	mode = string(unicode.ToUpper(rune(mode[0]))) + mode[1:]
-	handle(rw, req, mode, get, marshal)
+	getBills(rw, req, mode, get, marshal)
 }
 
 func main() {
