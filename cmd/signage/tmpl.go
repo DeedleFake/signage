@@ -34,4 +34,17 @@ func init() {
 		{{- end }}
 	</channel>
 </rss>`))
+
+	tmpl = template.Must(tmpl.New("list").Parse(`<html>
+	<head>
+		<title>Presidential Bill Lists</title>
+	</head>
+	<body>
+		<ul>
+			{{- range $mode, $_ := $.Modes }}
+			<li>{{ $mode }}{{ range $format, $_ := $.Marshallers }}{{ if ne $format "" }} (<a href='/{{ $mode }}{{ $format }}'>{{ $format }}</a>){{ end }}{{ end }}</li>
+			{{- end }}
+		</ul>
+	</body>
+</html>`))
 }

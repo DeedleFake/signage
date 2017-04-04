@@ -69,6 +69,24 @@ var (
 	}
 )
 
+func handleList(rw http.ResponseWriter, req *http.Request) {
+	var buf bytes.Buffer
+	err := tmpl.ExecuteTemplate(&buf, "list", map[string]interface{}{
+		"Marshallers": marshallers,
+		"Modes":       modes,
+	})
+	if err != nil {
+		http.Error(rw, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	_, err = io.Copy(rw, &buf)
+	if err != nil {
+		http.Error(rw, err.Error(), http.StatusInternalServerError)
+		return
+	}
+}
+
 func mux(rw http.ResponseWriter, req *http.Request) {
 	name := path.Base(req.URL.Path)
 	ext := path.Ext(name)
@@ -76,7 +94,7 @@ func mux(rw http.ResponseWriter, req *http.Request) {
 	mode := name[:len(name)-len(ext)]
 	get, ok := modes[mode]
 	if !ok {
-		http.Error(rw, fmt.Sprintf("Unknown bill list: %q", mode), http.StatusBadRequest)
+		handleList(rw, req)
 		return
 	}
 
