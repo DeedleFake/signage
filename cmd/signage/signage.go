@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log"
@@ -21,7 +22,11 @@ func marshalRSS(t string, bills []signage.Bill) (io.Reader, error) {
 }
 
 func marshalJSON(t string, bills []signage.Bill) (io.Reader, error) {
-	panic("Not implemented.")
+	buf, err := json.Marshal(map[string]interface{}{
+		"type":  t,
+		"bills": bills,
+	})
+	return bytes.NewReader(buf), err
 }
 
 func handleSigned(rw http.ResponseWriter, req *http.Request) {
