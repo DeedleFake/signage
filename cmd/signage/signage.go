@@ -2,52 +2,58 @@ package main
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
-	"text/template"
+	"path"
 
 	"github.com/DeedleFake/signage"
 )
 
-var (
-	tmpl *template.Template
-)
+func marshalRSS(t string, bills []signage.Bill) (io.Reader, error) {
+	var buf bytes.Buffer
+	err := tmpl.ExecuteTemplate(&buf, "rss", map[string]interface{}{
+		"Type":  t,
+		"Bills": bills,
+	})
+	return &buf, err
+}
 
-func init() {
-	tmpl = template.Must(template.New("rss").Parse(`<?xml version='1.0' encoding='UTF-8' ?>
-<rss version='2.0'>
-	<channel>
-		<title>{{ .Type }} Bills</title>
-
-		{{ range .Bills -}}
-		<item>
-			<title>{{ .Title }}</title>
-			<link>{{ .URL }}</link>
-			<pubDate>{{ .Date }}</pubDate>
-		</item>
-		{{- end }}
-	</channel>
-</rss>`))
+func marshalJSON(t string, bills []signage.Bill) (io.Reader, error) {
+	panic("Not implemented.")
 }
 
 func handleSigned(rw http.ResponseWriter, req *http.Request) {
+	mode := path.Ext(req.URL.Path)
+	if mode == "" {
+		mode = ".rss"
+	}
+
+	var marshal func(t string, bills []signage.Bill) (io.Reader, error)
+	switch mode {
+	case ".rss":
+		marshal = marshalRSS
+	case ".json":
+		marshal = marshalJSON
+	default:
+		http.Error(rw, fmt.Sprintf("Unknown format: %q", mode), http.StatusBadRequest)
+		return
+	}
+
 	bills, err := signage.GetSigned()
 	if err != nil {
 		http.Error(rw, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	var buf bytes.Buffer
-	err = tmpl.Execute(&buf, map[string]interface{}{
-		"Type":  "Signed",
-		"Bills": bills,
-	})
+	buf, err := marshal("Signed", bills)
 	if err != nil {
 		http.Error(rw, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	_, err = io.Copy(rw, &buf)
+
+	_, err = io.Copy(rw, buf)
 	if err != nil {
 		http.Error(rw, err.Error(), http.StatusInternalServerError)
 		return
