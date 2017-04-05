@@ -1,6 +1,8 @@
 package signage
 
 import (
+	"bytes"
+	"io"
 	"strings"
 	"time"
 
@@ -15,103 +17,71 @@ type Bill struct {
 	URL   string
 }
 
-func (b Bill) Summary() ([]Paragraph, error) {
+// Summary fetches and scrapes up to length paragraphs of the bill's
+// contents. In this instance, 'paragraph' means a single section of
+// text, as dilineated by the HTML of the page being scraped. If
+// length is less than zero, the whole bill is returned.
+func (b Bill) Summary(length int) (string, error) {
 	root, err := getHTML(b.URL)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 
 	first := findNode(root, func(n *html.Node) bool {
-		return (n.Type == html.ElementNode) && (n.Data == "p") && (getAttr(n.Attr, "class") == "rtecenter")
+		return (n.Type == html.TextNode) && (strings.HasPrefix(n.Data, "One Hundred"))
 	})
 	if first == nil {
-		return nil, nil
+		return "", nil
 	}
 
-	p := make([]Paragraph, 0, 10)
-	for i, cur := 0, first; (i < 10) && (cur != nil); i, cur = i+1, first.NextSibling {
-		p = append(p, getParagraph(cur, Paragraph{}))
+	var buf bytes.Buffer
+	for i, cur := 0, first.Parent.Parent; ((length < 0) || (i < length)) && (cur != nil); i, cur = i+1, cur.NextSibling {
+		writeNode(&buf, cur)
 	}
 
-	return p, nil
+	return buf.String(), nil
 }
 
-type Paragraph struct {
-	Lines []string
-	Type  ParagraphType
-}
-
-func getParagraph(n *html.Node, p Paragraph) Paragraph {
-	if n == nil {
-		return p
-	}
-
-	switch n.Type {
-	case html.ElementNode:
-		switch n.Data {
-		case "p":
-			if getAttr(n.Attr, "class") == "rtecenter" {
-				p.Type |= Centered
-			}
-			return getParagraph(n.FirstChild, p)
-
-		case "div":
-			if strings.Contains(getAttr(n.Attr, "style"), "center;") {
-				p.Type |= Centered
-			}
-			return getParagraph(n.FirstChild, p)
-
-		case "strong":
-			p.Type |= Strong
-			return getParagraph(n.FirstChild, p)
-
-		case "em":
-			p.Type |= Emphasis
-			return getParagraph(n.FirstChild, p)
+// writeNode recursively rebuilds HTML source from a node and all of
+// its children.
+func writeNode(w io.Writer, n *html.Node) {
+	var inner func(io.Writer, *html.Node, bool)
+	inner = func(w io.Writer, n *html.Node, top bool) {
+		if n == nil {
+			return
 		}
 
-	case html.TextNode:
-		if len(strings.TrimSpace(n.Data)) == 0 {
-			return getParagraph(n.NextSibling, p)
-		}
+		switch n.Type {
+		case html.TextNode:
+			io.WriteString(w, n.Data)
 
-		for cur := n; cur != nil; cur = cur.NextSibling {
-			if cur.Type != html.TextNode {
-				continue
+		case html.ElementNode:
+			io.WriteString(w, "<")
+			io.WriteString(w, n.Data)
+			if len(n.Attr) > 0 {
+				for _, attr := range n.Attr {
+					io.WriteString(w, " ")
+					io.WriteString(w, attr.Key)
+					io.WriteString(w, "='")
+					io.WriteString(w, html.EscapeString(attr.Val))
+					io.WriteString(w, "'")
+				}
 			}
-
-			p.Lines = append(p.Lines, cur.Data)
+			if n.FirstChild == nil {
+				io.WriteString(w, " />")
+				break
+			}
+			io.WriteString(w, ">")
+			inner(w, n.FirstChild, false)
+			io.WriteString(w, "</")
+			io.WriteString(w, n.Data)
+			io.WriteString(w, ">")
 		}
-		return p
+
+		if !top {
+			inner(w, n.NextSibling, false)
+		}
 	}
 
-	return getParagraph(n.FirstChild, p)
-}
-
-type ParagraphType uint
-
-const (
-	Centered ParagraphType = (1 << iota)
-	Strong
-	Emphasis
-)
-
-func (p ParagraphType) HTML() (before, after string) {
-	if p&Emphasis != 0 {
-		before = "<em>" + before
-		after += "</em>"
-	}
-	if p&Strong != 0 {
-		before = "<strong>" + before
-		after += "</string>"
-	}
-
-	before = ">" + before
-	after += "</p>"
-	if p&Centered != 0 {
-		before = " style='width:80%;margin:0px auto;'" + before
-	}
-	before = "<p" + before
-
-	return
+	inner(w, n, true)
 }
