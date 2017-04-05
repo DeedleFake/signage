@@ -3,6 +3,7 @@ package main
 import (
 	"html/template"
 	"path"
+	"strings"
 	"time"
 )
 
@@ -21,6 +22,7 @@ func init() {
 		},
 
 		"joinpath": path.Join,
+		"join":     strings.Join,
 	})
 
 	tmpl = template.Must(tmpl.New("rss").Parse(`{{ "<?xml version='1.0' encoding='UTF-8' ?>" | safeHTML }}
@@ -33,6 +35,7 @@ func init() {
 			<title>{{ .Title }}</title>
 			<link>{{ .URL }}</link>
 			<pubDate>{{ .Date | rfc2822 }}</pubDate>
+			<description>{{ .Summary -1 }}</description>
 		</item>
 		{{- end }}
 	</channel>
