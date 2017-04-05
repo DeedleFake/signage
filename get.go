@@ -41,15 +41,9 @@ func scrape(url string) ([]Bill, error) {
 		DateFormat = "2006-01-02T15:04:05-07:00"
 	)
 
-	rsp, err := http.Get(url)
+	root, err := getHTML(url)
 	if err != nil {
-		return nil, errors.Err(err)
-	}
-	defer rsp.Body.Close()
-
-	root, err := html.Parse(rsp.Body)
-	if err != nil {
-		return nil, errors.Err(err)
+		return nil, err
 	}
 
 	content := findNode(root, func(n *html.Node) bool {
@@ -89,6 +83,18 @@ func scrape(url string) ([]Bill, error) {
 	return entries, nil
 }
 
+// getHTML fetches and parses an HTML tree from a URL.
+func getHTML(url string) (*html.Node, error) {
+	rsp, err := http.Get(url)
+	if err != nil {
+		return nil, errors.Err(err)
+	}
+	defer rsp.Body.Close()
+
+	root, err := html.Parse(rsp.Body)
+	return root, errors.Err(err)
+}
+
 // findNode recursively searches an HTML node tree until it finds one
 // on which match returns true, at which point it returns that node.
 // If no nodes match, it returns nil.
@@ -104,6 +110,8 @@ func findNode(root *html.Node, match func(*html.Node) bool) *html.Node {
 	return findNode(root.NextSibling, match)
 }
 
+// getAttr searches an attribute list for a key, returning its value
+// if found or the empty string otherwise.
 func getAttr(attrs []html.Attribute, key string) (val string) {
 	for _, attr := range attrs {
 		if attr.Key == key {
@@ -112,12 +120,4 @@ func getAttr(attrs []html.Attribute, key string) (val string) {
 	}
 
 	return
-}
-
-// Bill contains information about a specific entry on the White House
-// site.
-type Bill struct {
-	Date  time.Time
-	Title string
-	URL   string
 }
