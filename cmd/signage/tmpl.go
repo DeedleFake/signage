@@ -2,6 +2,7 @@ package main
 
 import (
 	"html/template"
+	"path"
 	"time"
 )
 
@@ -18,6 +19,8 @@ func init() {
 		"safeHTML": func(str string) template.HTML {
 			return template.HTML(str)
 		},
+
+		"joinpath": path.Join,
 	})
 
 	tmpl = template.Must(tmpl.New("rss").Parse(`{{ "<?xml version='1.0' encoding='UTF-8' ?>" | safeHTML }}
@@ -42,7 +45,7 @@ func init() {
 	<body>
 		<ul>
 			{{- range $mode, $_ := $.Modes }}
-			<li>{{ $mode }}{{ range $format, $_ := $.Marshallers }}{{ if ne $format "" }} (<a href='/{{ $mode }}{{ $format }}'>{{ $format }}</a>){{ end }}{{ end }}</li>
+			<li>{{ $mode }}{{ range $format, $_ := $.Marshallers }}{{ if ne $format "" }} (<a href='{{ joinpath $.Root $mode }}{{ $format }}'>{{ $format }}</a>){{ end }}{{ end }}</li>
 			{{- end }}
 		</ul>
 	</body>

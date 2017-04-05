@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"io"
 	"log"
@@ -72,11 +73,12 @@ var (
 	}
 )
 
-func handleList(rw http.ResponseWriter, req *http.Request) {
+func handleList(rw http.ResponseWriter, req *http.Request, root string) {
 	var buf bytes.Buffer
 	err := tmpl.ExecuteTemplate(&buf, "list", map[string]interface{}{
 		"Marshallers": marshallers,
 		"Modes":       modes,
+		"Root":        root,
 	})
 	if err != nil {
 		http.Error(rw, err.Error(), http.StatusInternalServerError)
@@ -90,29 +92,35 @@ func handleList(rw http.ResponseWriter, req *http.Request) {
 	}
 }
 
-func mux(rw http.ResponseWriter, req *http.Request) {
-	log.Printf("%q request for %q from %v", req.Method, req.URL, req.RemoteAddr)
+func mux(root string) http.Handler {
+	return http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		log.Printf("%q request for %q from %v", req.Method, req.URL, req.RemoteAddr)
 
-	name := path.Base(req.URL.Path)
-	ext := path.Ext(name)
+		name := path.Base(req.URL.Path)
+		ext := path.Ext(name)
 
-	mode := name[:len(name)-len(ext)]
-	get, ok := modes[mode]
-	if !ok {
-		handleList(rw, req)
-		return
-	}
+		mode := name[:len(name)-len(ext)]
+		get, ok := modes[mode]
+		if !ok {
+			handleList(rw, req, root)
+			return
+		}
 
-	marshal, ok := marshallers[ext]
-	if !ok {
-		http.Error(rw, fmt.Sprintf("Unknown format: %q", ext), http.StatusBadRequest)
-		return
-	}
+		marshal, ok := marshallers[ext]
+		if !ok {
+			http.Error(rw, fmt.Sprintf("Unknown format: %q", ext), http.StatusBadRequest)
+			return
+		}
 
-	mode = string(unicode.ToUpper(rune(mode[0]))) + mode[1:]
-	getBills(rw, req, mode, get, marshal)
+		mode = string(unicode.ToUpper(rune(mode[0]))) + mode[1:]
+		getBills(rw, req, mode, get, marshal)
+	})
 }
 
 func main() {
-	log.Fatalln(http.ListenAndServe(":8080", http.HandlerFunc(mux)))
+	addr := flag.String("addr", ":8080", "The address to bind to.")
+	root := flag.String("root", "/", "The base URL to build absolute URLs from.")
+	flag.Parse()
+
+	log.Fatalln(http.ListenAndServe(*addr, mux(*root)))
 }
