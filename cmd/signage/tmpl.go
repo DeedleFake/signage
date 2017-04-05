@@ -25,6 +25,7 @@ func init() {
 		"join":     strings.Join,
 	})
 
+	// TODO: Parallelize summary fetches.
 	tmpl = template.Must(tmpl.New("rss").Parse(`{{ "<?xml version='1.0' encoding='UTF-8' ?>" | safeHTML }}
 <rss version='2.0'>
 	<channel>
