@@ -37,19 +37,22 @@ type getFunc func() ([]signage.Bill, error)
 func getBills(rw http.ResponseWriter, req *http.Request, mode string, get getFunc, marshal marshalFunc) {
 	bills, err := get()
 	if err != nil {
-		http.Error(rw, err.Error(), http.StatusInternalServerError)
+		log.Printf("Failed to get bills: %v", err)
+		http.Error(rw, "Error: Failed to get bills.", http.StatusInternalServerError)
 		return
 	}
 
 	buf, err := marshal(mode, bills)
 	if err != nil {
-		http.Error(rw, err.Error(), http.StatusInternalServerError)
+		log.Printf("Failed to marshal bills: %v", err)
+		http.Error(rw, "Error: Failed to marshal bills.", http.StatusInternalServerError)
 		return
 	}
 
 	_, err = io.Copy(rw, buf)
 	if err != nil {
-		http.Error(rw, err.Error(), http.StatusInternalServerError)
+		log.Printf("Failed to write to client: %v", err)
+		http.Error(rw, "Error: Failed to write to cl... Wait, how can you see this?", http.StatusInternalServerError)
 		return
 	}
 }
@@ -88,6 +91,8 @@ func handleList(rw http.ResponseWriter, req *http.Request) {
 }
 
 func mux(rw http.ResponseWriter, req *http.Request) {
+	log.Printf("%q request for %q from %v", req.Method, req.URL, req.RemoteAddr)
+
 	name := path.Base(req.URL.Path)
 	ext := path.Ext(name)
 
